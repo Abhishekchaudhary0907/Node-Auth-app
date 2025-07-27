@@ -22,3 +22,12 @@ git commit
 git remote add origin <remote url>
 git branch -M main
 git push -u origin <branch name>
+
+// winston for logging
+winston-daily-rotate-file ==> this is for logging in file
+
+winston-mongodb ==> transport logs on mongodb db
+
+//morgan ==> this is for logging http request response
+
+// generally we integrate morgan with winston

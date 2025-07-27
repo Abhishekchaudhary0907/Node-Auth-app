@@ -4,7 +4,7 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
+import { logger } from "../../utils/logger/index.js";
 dotenv.config({});
 
 export const getLoginService = (body) => {
@@ -33,7 +33,7 @@ export const postLoginService = async (body) => {
       };
     }
   } catch (error) {
-    console.log(error);
+    logger.error(error);
     throw new Error("login failed");
   }
 };
@@ -77,16 +77,16 @@ export const postSignupService = async (body) => {
           pass: process.env.MAILTRAP_PASSWORD,
         },
       });
-      console.log("transporter created");
+      logger.info("transporter created");
 
       transporter.verify((error, success) => {
         if (error) {
           console.error("Transporter error:", error);
         } else {
-          console.log("Server is ready to send messages");
+          logger.info("Server is ready to send messages");
         }
       });
-      console.log(process.env.BASE_URL);
+      logger.info(process.env.BASE_URL);
 
       await transporter.sendMail({
         from: '"abhishek" <cabhishek691@gmail.com>',
@@ -98,7 +98,7 @@ export const postSignupService = async (body) => {
               ${process.env.BASE_URL}/api/v1/auth/verify?token=${token}`, // HTML body
       });
 
-      console.log("mail sent");
+      logger.info("mail sent");
 
       return {
         statusCode: 200,
@@ -107,7 +107,7 @@ export const postSignupService = async (body) => {
       //verify
     }
   } catch (error) {
-    console.log(error);
+    logger.error(error);
     throw new Error(error);
   }
 };
@@ -144,7 +144,7 @@ export const verifyEmailService = async (query) => {
       message: "Email verified",
     };
   } catch (error) {
-    console.log(error);
+    logger.error(error);
     throw new Error(error);
   }
 };
@@ -185,7 +185,7 @@ export const loginService = async (body) => {
     //}
     //res.cookie('test',token,cookieOptions)
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     throw new Error(error);
   }
 };

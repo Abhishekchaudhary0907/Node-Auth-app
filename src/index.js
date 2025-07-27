@@ -4,7 +4,7 @@ import cors from "cors";
 import { db } from "./db/index.js";
 import authRoutes from "./routes/index.js";
 import cookieParser from "cookie-parser";
-
+import { logger } from "./utils/logger/index.js";
 dotenv.config({});
 const app = express();
 app.use(
@@ -32,7 +32,7 @@ app.post("/post-test", (req, res) => {
       responseData: "hi",
     });
   } catch (error) {
-    console.error("error", error.message);
+    logger.error("error", error.message);
     res.status(500).send({
       error: error.message,
     });
@@ -47,9 +47,9 @@ const dbConnection = async () => {
   try {
     const result = await db();
     if (result) {
-      console.log("db connection established");
+      logger.info("db connection established");
       app.listen(PORT, () => {
-        console.log("app is running on port", PORT);
+        logger.info("app is running on port", PORT);
       });
     }
   } catch (err) {
@@ -60,9 +60,9 @@ const dbConnection = async () => {
 dbConnection()
   .then(() => {
     app.listen(PORT, () => {
-      console.log("app is running on port", PORT);
+      logger.info("app is running on port", PORT);
     });
   })
   .catch((err) => {
-    console.log(err);
+    logger.error(err);
   });
