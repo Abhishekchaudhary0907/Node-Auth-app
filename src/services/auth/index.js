@@ -162,6 +162,11 @@ export const loginService = async (body) => {
       return { statusCode: 400, message: "user not found" };
     }
 
+    const isVerified = user.isVerified;
+    if (!isVerified) {
+      return { statusCode: 400, message: "complete signup process" };
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     console.log(isMatch);
 
