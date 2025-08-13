@@ -1,10 +1,12 @@
 import crypto from "crypto";
 import { User } from "../../db/model/user/index.js";
+import { RefreshToken } from "../../db/model/refresh_token/index.js";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { logger } from "../../utils/logger/index.js";
+import mongoose from "mongoose";
 dotenv.config({});
 
 export const getLoginService = (body) => {
@@ -174,15 +176,30 @@ export const loginService = async (body) => {
       return { statusCode: 400, message: "invalid email or password" };
     }
 
-    const token = jwt.sign(
+    jwt.verify();
+
+    const accessToken = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       {
-        expiresIn: "24h",
+        expiresIn: "15m",
       }
     );
 
-    return { statusCode: 200, token: token };
+    const refreshToken = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_REFRESH_TOKEN_SECRET,
+      {
+        expiresIn: "30d",
+      }
+    );
+
+    if (refreshToken) {
+      user.refreshToken = refreshToken;
+      await user.save();
+    }
+
+    return { statusCode: 200, accessToken, refreshToken };
     //const cookieOptions = {
     //httpOnly: true //now cookie is in control of backend ,cannot be accessed via JavaScript on the client side (e.g., via document.cookie)
     //secure:true,
@@ -264,6 +281,89 @@ export const forgotPasswordService = async (body) => {
     console.log("error in forgot-password token send service");
     throw new Error(error);
   }
+};
+
+export const refreshTokenService = async (refreshToken) => {
+  try {
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const refreshTokenDocument = await RefreshToken.findOne({
+      hashedRefreshToken,
+    }).populate("user");
+    //jwt.verify(refreshToken, process.env.JWT_REFRESH_TOKEN_SECRET);
+    // o the basis of this doc i have to extract information about user
+    if (!refreshTokenDocument) {
+      return { statusCode: 400, message: "Invalid refresh token" };
+    }
+    if (refreshTokenDocument.revokedAt) {
+      // revoke whole family
+      const familyId = refreshTokenDocument.familyId;
+      await RefreshToken.updateMany(
+        { familyId, revokedAt: null },
+        { $set: { revokedAt: new Date(), revokedReason: "reuse detected" } }
+      );
+      return { statusCode: 403, message: "reauthentication required" };
+    }
+    if (refreshTokenDocument.expiresAt < new Date()) {
+      return { statusCode: 403, message: "reauthentication required" };
+    }
+
+    if (refreshTokenDocument.used) {
+      const familyId = refreshTokenDocument.familyId;
+      await refreshToken.updateMany(
+        { familyId, revokedAt: null },
+        { $set: { revokedAt: new Date(), revokedReason: "reused token" } }
+      );
+      return { statusCode: 403, message: "authentication required" };
+    }
+
+    //valid token rotate it use a transaction to keep operation atomic
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    refreshTokenDocument.used = true;
+    // need to add
+    // cerate a random token
+    const newRefreshToken = crypto.randomBytes(32).toString("hex");
+    // create new token id
+    const newTokenId = crypto.randomUUID();
+    //preserve family id
+    const newFamilyId = refreshTokenDocument.familyId;
+    // create newRefresh token hash which needs to be stored in db
+    const newRefreshTokenHash = await bcrypt.hash(newRefreshToken, 10);
+
+    const now = new Date();
+    // set expires at
+    const newExpiresAt = Date.now() + 15 * 24 * 60 * 60 * 1000;
+    const child = await RefreshToken.create(
+      [
+        {
+          refreshTokenHash: newRefreshTokenHash,
+          user: null,
+          createdAt: now,
+          replacedByTokenId: null,
+          revokedAt: null,
+          revokesReason: null,
+          expiresAt: newExpiresAt,
+          tokenId: newTokenId,
+          familyId: newFamilyId,
+          used: false,
+        },
+      ],
+      { session }
+    );
+    refreshTokenDocument.replacedByTokenId = newTokenId;
+    await refreshTokenDocument.save({ session }); // this will ensure atomicity
+    await session.commitTransaction();
+    await session.endSession();
+    //create new access token
+    const accessToken = jwt.sign(
+      {
+        id: user._id,
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+  } catch (error) {}
 };
 
 export const resetPasswordService = async (token, password) => {

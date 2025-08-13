@@ -44,13 +44,30 @@ export const login = async (req, res, next) => {
     const { body } = req;
     const response = await AuthServices.loginService(body);
 
-    const cookieOptions = {
+    const cookieOptionsForAccessToken = {
       httpOnly: true,
       secure: true,
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: 15 * 60 * 1000,
+    };
+    const cookieOptionsForRefreshToken = {
+      httpOnly: true,
+      secure: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
     };
     response.statusCode === 200
-      ? res.cookie("token", response.token, cookieOptions).send({
+      ? (res.cookie("token", response.accessToken, cookieOptionsForAccessToken),
+        res.cookie(
+          "refreshToken",
+          response.refreshToken,
+          cookieOptionsForRefreshToken
+        ))
+      : res.send({
+          statusCode: response.statusCode,
+          message: response.message,
+        });
+
+    response.statusCode === 200
+      ? res.send({
           statusCode: 200,
           message: "login successful",
           token: response.token,
@@ -96,6 +113,17 @@ export const getProfile = async (req, res, next) => {
       message: "Internal server error auth controller",
     });
   }
+};
+
+export const refreshToken = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.cookies?.refreshToken;
+    console.log(
+      refreshToken ? "refresh token found" : "refresh token not found"
+    );
+    // check from db also
+    const response = await AuthServices.refreshTokenService(refreshToken);
+  } catch (error) {}
 };
 
 export const logoutUser = async (req, res, next) => {

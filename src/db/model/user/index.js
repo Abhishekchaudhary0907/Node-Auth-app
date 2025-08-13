@@ -3,13 +3,29 @@ import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
   {
-    name: String,
-    email: String,
-    password: String,
+    name: {
+      type: String,
+      required: true,
+    },
+
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      lowercase: true,
+      match: [/^\S+@\S+\.\S+$/, "Please enter a valid email address"],
+    },
+    password: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
+      required: true,
     },
     isVerified: {
       type: Boolean,
@@ -27,11 +43,16 @@ const userSchema = new mongoose.Schema(
     resetPasswordTokenExpires: {
       type: Date,
     },
+    refreshToken: {
+      type: String,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+userSchema.index({ email: 1 }, { unique: true });
 
 // callback function declaration should not be arrow function
 
