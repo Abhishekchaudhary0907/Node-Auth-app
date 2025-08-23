@@ -31,3 +31,31 @@ winston-mongodb ==> transport logs on mongodb db
 //morgan ==> this is for logging http request response
 
 // generally we integrate morgan with winston
+
+mongodb structure
+Cluster
+└── Database(s)
+└── Collection(s)
+└── Document(s)
+
+mongoose.Model("User",userSchema)
+
+'User' --> refer to --> 'users' collection in mongodb
+
+You don’t need to manually create collections in MongoDB Atlas.
+Mongoose will automatically create the collection for you when you first save a document through a model.
+
+//// connect to Atlas and specify a db name "myNewApp"
+await mongoose.connect("mongodb+srv://<username>:<password>@cluster0.mongodb.net/myNewApp");
+
+//What is Connection Pooling?
+
+A connection pool is a cache of reusable database connections maintained by the MongoDB driver (or Mongoose, which uses the driver under the hood).
+
+Instead of opening and closing a new network connection for every request (slow & expensive), the app:
+
+Opens a pool of connections once.
+
+Reuses those connections across all requests.
+
+Releases them back to the pool when done.
